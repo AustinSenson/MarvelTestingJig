@@ -212,6 +212,9 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l4xx_hal.h"
 
+
+#define CAN1                ((CAN_TypeDef *) CAN1_BASE)
+
 /** @addtogroup STM32L4xx_HAL_Driver
   * @{
   */

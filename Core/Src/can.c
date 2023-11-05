@@ -1,4 +1,3 @@
-/* USER CODE BEGIN Header */
 /**
   ******************************************************************************
   * @file    can.c
@@ -7,22 +6,26 @@
   ******************************************************************************
   * @attention
   *
-  * Copyright (c) 2023 STMicroelectronics.
-  * All rights reserved.
+  * <h2><center>&copy; Copyright (c) 2022 STMicroelectronics.
+  * All rights reserved.</center></h2>
   *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
+  * This software component is licensed by ST under BSD 3-Clause license,
+  * the "License"; You may not use this file except in compliance with the
+  * License. You may obtain a copy of the License at:
+  *                        opensource.org/licenses/BSD-3-Clause
   *
   ******************************************************************************
   */
-/* USER CODE END Header */
+
 /* Includes ------------------------------------------------------------------*/
 #include "can.h"
 #include "main.h"
 
 /* USER CODE BEGIN 0 */
-uint8_t canData[8] = {0};
+
+/* USER CODE END 0 */
+
+CAN_HandleTypeDef hcan1;
 
 extern bool TEST_ALL_FLAG;
 extern bool CAN_COMMUNICATION_FLAG;
@@ -32,9 +35,8 @@ extern bool EEPROM_TEST_FLAG;
 extern bool CELL_BALANCING_FLAG;
 extern bool CONTACTOR_MOSFETS_CONTROL;
 
-/* USER CODE END 0 */
+extern uint8_t canData[8];
 
-CAN_HandleTypeDef hcan1;
 
 /* CAN1 init function */
 void MX_CAN1_Init(void)
@@ -48,15 +50,15 @@ void MX_CAN1_Init(void)
 
   /* USER CODE END CAN1_Init 1 */
   hcan1.Instance = CAN1;
-  hcan1.Init.Prescaler = 16;
+  hcan1.Init.Prescaler = 32;
   hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan1.Init.TimeSeg1 = CAN_BS1_1TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_8TQ;
   hcan1.Init.TimeSeg2 = CAN_BS2_1TQ;
   hcan1.Init.TimeTriggeredMode = DISABLE;
-  hcan1.Init.AutoBusOff = DISABLE;
+  hcan1.Init.AutoBusOff = ENABLE;
   hcan1.Init.AutoWakeUp = DISABLE;
-  hcan1.Init.AutoRetransmission = DISABLE;
+  hcan1.Init.AutoRetransmission = ENABLE;
   hcan1.Init.ReceiveFifoLocked = DISABLE;
   hcan1.Init.TransmitFifoPriority = DISABLE;
   if (HAL_CAN_Init(&hcan1) != HAL_OK)
@@ -64,6 +66,22 @@ void MX_CAN1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN CAN1_Init 2 */
+
+  CAN_FilterTypeDef canFilterConfig;
+
+  canFilterConfig.FilterActivation = CAN_FILTER_ENABLE;
+  canFilterConfig.FilterBank = 0;
+  canFilterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+  canFilterConfig.FilterIdHigh = 0x201 << 5;
+  canFilterConfig.FilterIdLow = 0;
+  canFilterConfig.FilterMaskIdHigh = 0x200 <<5;
+  canFilterConfig.FilterMaskIdLow = 0;
+  canFilterConfig.FilterMode = CAN_FILTERMODE_IDLIST;
+  canFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+  canFilterConfig.SlaveStartFilterBank = 0;
+
+  HAL_CAN_ConfigFilter(&hcan1, &canFilterConfig);
+
 
   /* USER CODE END CAN1_Init 2 */
 
@@ -93,6 +111,12 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* canHandle)
     GPIO_InitStruct.Alternate = GPIO_AF9_CAN1;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+		/* CAN1 interrupt Init */
+		HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 0, 0);
+		HAL_NVIC_EnableIRQ(CAN1_RX0_IRQn);
+		HAL_NVIC_SetPriority(CAN1_RX1_IRQn, 0, 0);
+		HAL_NVIC_EnableIRQ(CAN1_RX1_IRQn);
+
   /* USER CODE BEGIN CAN1_MspInit 1 */
 
   /* USER CODE END CAN1_MspInit 1 */
@@ -116,14 +140,19 @@ void HAL_CAN_MspDeInit(CAN_HandleTypeDef* canHandle)
     */
     HAL_GPIO_DeInit(GPIOA, GPIO_PIN_11|GPIO_PIN_12);
 
+		/* CAN1 interrupt Deinit */
+		HAL_NVIC_DisableIRQ(CAN1_RX0_IRQn);
+		HAL_NVIC_DisableIRQ(CAN1_RX1_IRQn);
+
   /* USER CODE BEGIN CAN1_MspDeInit 1 */
 
   /* USER CODE END CAN1_MspDeInit 1 */
   }
 }
 
-/* USER CODE BEGIN 1 */
 
+
+/* USER CODE BEGIN 1 */
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
 //will receive the test instructions over CAN
@@ -131,8 +160,6 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 	if (hcan == &hcan1)
 		{
 			HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pRxHeader, canData);
-
-
 
 		if(pRxHeader.StdId == LAPTOP_ID)
 		{
@@ -184,22 +211,11 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 			{
 				EEPROM_TEST_FLAG = true;
 			}
-//			else if(canData[4] == 1)
-//			{
-//				CELL_BALANCING_FLAG = true;
-//			}
-//			else if(canData[5] == 1)
-//			{
-//				CONTACTOR_MOSFETS_CONTROL = true;
-//			}
 		}
-
+  }
 }
 
-
-
-
-
-}
 
 /* USER CODE END 1 */
+
+/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
